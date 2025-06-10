@@ -6,6 +6,26 @@ import { executeLocal } from './services/PactCommandService';
 import Pact from 'pact-lang-api';
 import { defaultPresets } from './presets';
 
+function buildBalanceCommand(account: string, chainId: string) {
+  return JSON.stringify(
+    {
+      pactCode: `(coin.get-balance "${account}")`,
+      envData: {},
+      meta: Pact.lang.mkMeta(
+        account,
+        chainId,
+        0.00000001,
+        1000,
+        Math.floor(Date.now() / 1000),
+        28800
+      ),
+      networkId: 'testnet04',
+    },
+    null,
+    2
+  );
+}
+
 declare const ace: any;
 
 (async () => {
@@ -61,12 +81,11 @@ declare const ace: any;
   }
   if (presets.length === 0) {
     presets = [...defaultPresets];
-    presets[0] = `(coin.get-balance "${account}")`;
-    localStorage.setItem('pactPresets', JSON.stringify(presets));
   }
-  if (presets[0].includes('(coin.get-balance')) {
-    presets[0] = `(coin.get-balance "${account}")`;
+  if (!presets[0] || presets[0].includes('(coin.get-balance') || presets[0] === '{}') {
+    presets[0] = buildBalanceCommand(account, chainIds[0]);
   }
+  localStorage.setItem('pactPresets', JSON.stringify(presets));
   let currentTab = 0;
 
   document.getElementById('app')!.innerHTML = `
@@ -82,7 +101,7 @@ declare const ace: any;
   const tabsEl = document.getElementById('tabs')!;
   const editor = ace.edit('editor');
   editor.setTheme('ace/theme/monokai');
-  editor.session.setMode('ace/mode/javascript');
+  editor.session.setMode('ace/mode/json');
 
   const renderTabs = () => {
     tabsEl.innerHTML = '';
@@ -103,10 +122,10 @@ declare const ace: any;
     add.textContent = '+';
     add.className = 'tab';
     add.addEventListener('click', () => {
-      presets.push('');
+      presets.push('{}');
       currentTab = presets.length - 1;
       localStorage.setItem('pactPresets', JSON.stringify(presets));
-      editor.setValue('', -1);
+      editor.setValue('{}', -1);
       renderTabs();
     });
     tabsEl.appendChild(add);
@@ -122,27 +141,21 @@ declare const ace: any;
   const submit = document.getElementById('submitBtn') as HTMLButtonElement;
   const response = document.getElementById('response') as HTMLElement;
   submit.addEventListener('click', async () => {
-    const code = editor.getValue().trim();
-    if (/mainnet/i.test(code)) {
+    const text = editor.getValue().trim();
+    let cmd: any;
+    try {
+      cmd = JSON.parse(text);
+    } catch (err) {
+      response.textContent = `Invalid JSON: ${err}`;
+      return;
+    }
+    if (!cmd.networkId || !/^testnet/i.test(cmd.networkId)) {
       response.textContent = 'Error: commands are allowed only on the testnet';
       return;
     }
-    const chainId = chainIds[0];
-    const cmd = {
-      pactCode: code,
-      envData: {},
-      meta: Pact.lang.mkMeta(
-        account,
-        chainId,
-        0.00000001,
-        1000,
-        Math.floor(Date.now() / 1000),
-        28800
-      ),
-      networkId: 'testnet04',
-    };
+    const chainId = cmd.meta?.chainId || chainIds[0];
     try {
-      const res = await executeLocal(cmd, chainId, 'testnet04');
+      const res = await executeLocal(cmd, chainId, cmd.networkId);
       response.textContent = JSON.stringify(res, null, 2);
     } catch (err) {
       response.textContent = `Error executing command: ${err}`;
