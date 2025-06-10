@@ -1,5 +1,9 @@
 import { IWalletAdapter } from './IWalletAdapter';
-import { detectEckoProvider, EckoWalletAdapter } from '@kadena/wallet-adapter-ecko';
+import {
+  detectEckoProvider,
+  EckoWalletAdapter,
+  IEckoProvider
+} from '@kadena/wallet-adapter-ecko';
 
 /**
  * EckoAdapter implementa IWalletAdapter para integração com eckoWALLET.
@@ -7,57 +11,93 @@ import { detectEckoProvider, EckoWalletAdapter } from '@kadena/wallet-adapter-ec
 export class EckoAdapter implements IWalletAdapter {
   name = 'eckoWALLET';
   private impl: EckoWalletAdapter;
-
-  /**
-   * Detecta o provider eckoWALLET uma única vez.
-   */
-  static async detect(): Promise<EckoAdapter | null> {
-    console.log('🔍 Detecting eckoWALLET provider...');
-    const provider = await detectEckoProvider({ silent: true });
-    if (!provider) {
-      console.log('🟡 eckoWALLET provider not detected');
-      return null;
-    }
-    console.log('🟢 eckoWALLET provider found');
-    const impl = new EckoWalletAdapter({ provider });
-    return new EckoAdapter(impl);
-  }
+  private accountName = '';
+  private publicKey = '';
 
   private constructor(impl: EckoWalletAdapter) {
     this.impl = impl;
   }
 
-  /** Sempre retorna true, pois detect() já garantiu o provider. */
-  async detect(): Promise<boolean> {
-    return true;
+  /** Detecta provider e cria adapter */
+  static async detect(): Promise<EckoAdapter | null> {
+    const provider: IEckoProvider | null = await detectEckoProvider({ silent: true });
+    return provider ? new EckoAdapter(new EckoWalletAdapter({ provider })) : null;
   }
 
-  /** Dispara popup de conexão da extensão e aguarda autorização. */
+  async detect() { return true; }
+
+  /** Conecta e obtém account / pubKey com logs detalhados. */
   async connect(): Promise<void> {
-    console.log('🟢 Prompting user to connect eckoWALLET');
     await this.impl.connect();
-    console.log('🟢 eckoWALLET connected');
-  }
+    console.log('🔵 Connected to wallet');
 
-  /** Retorna a conta ativa e todos os chain IDs da rede Kadena (0-19). */
-  async getAccounts(): Promise<{ account: string; chainIds: string[] }[]> {
-    console.log('🔵 Getting active account from eckoWALLET');
+    // 1. Tenta RPC oficial
+    try {
+      const info = await window.kadena.request({
+        method: 'kda_requestAccount',
+        params: { networkId: 'testnet04' }
+      });
+      console.log('🔵 RPC Account Info:', info);
+      if (info?.status === 'success' && info.wallet?.account) {
+        this.accountName = info.wallet.account;
+        this.publicKey = info.wallet.publicKey || this.accountName.replace(/^k:/, '');
+        console.log('🔵 Account & pubKey set from RPC:', this.accountName, this.publicKey);
+        return;
+      }
+    } catch (e) {
+      console.warn('⚠️ RPC request error:', e);
+    }
+
+    // 2. Fallback via impl.getActiveAccount()
     const acc = await this.impl.getActiveAccount();
-    const accountName = typeof acc === 'string' ? acc : acc.accountName;
-    const chainIds = Array.from({ length: 20 }, (_, i) => i.toString());
-    console.log(`🔵 Active account: ${accountName}, chainIds: ${chainIds.join(',')}`);
-    return [{ account: accountName, chainIds }];
+    console.log('🔵 Fallback Account Info:', acc);
+    if (typeof acc === 'string') {
+      this.accountName = acc;
+      this.publicKey = acc.replace(/^k:/, '');
+    } else {
+      this.accountName = acc.accountName;
+      this.publicKey = acc.publicKey || acc.accountName.replace(/^k:/, '');
+    }
+    console.log('🔵 Account & pubKey set from fallback:', this.accountName, this.publicKey);
   }
 
-  /** Assina o comando usando eckoWALLET. */
-  async signTransaction(cmd: any): Promise<any> {
-    console.log('🔵 Signing transaction with eckoWALLET');
-    return this.impl.sign(cmd);
+  async getAccounts() {
+    return [{ account: this.accountName, chainIds: Array.from({ length: 20 }, (_, i) => i.toString()) }];
   }
 
-  /** Envia a transação assinada via eckoWALLET. */
-  async sendTransaction(signed: any): Promise<any> {
-    console.log('🔵 Sending transaction via eckoWALLET');
-    return this.impl.send(signed);
+  /** Injeta signer com pubKey raw (sem k:) se ausente com logs detalhados. */
+  async signTransaction(cmd: any) {
+    console.log('🔵 PublicKey ao assinar:', this.publicKey);
+    console.log('🔵 Comando original:', cmd);
+
+    const signerKey = this.publicKey.replace(/^k:/, '');
+    let signingCmd;
+
+    if (cmd.cmd) {
+      // Caso o cmd já esteja serializado
+      const parsed = JSON.parse(cmd.cmd);
+      parsed.signers = parsed.signers?.length ? parsed.signers : [{ pubKey: signerKey }];
+      signingCmd = {
+        ...cmd,
+        cmd: JSON.stringify(parsed)
+      };
+    } else {
+      // Caso o cmd ainda esteja como objeto
+      signingCmd = {
+        ...cmd,
+        signers: cmd.signers?.length ? cmd.signers : [{ pubKey: signerKey }]
+      };
+    }
+
+    console.log('🔵 Comando com signers corrigido:', signingCmd);
+
+    const signed = await this.impl.signTransaction(signingCmd);
+    console.log('🔵 Resposta da assinatura:', signed);
+    return signed;
+  }
+
+  async sendTransaction(signed: any) {
+    return await this.impl.sendTransaction(signed);
   }
 }
+
