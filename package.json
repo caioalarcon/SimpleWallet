@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@kadena/spirekey-sdk": "^1.0.1",
+    "@kadena/wallet-adapter-ecko": "^0.0.1-beta.2",
     "pact-lang-api": "^4.3.6"
   },
   "devDependencies": {
