@@ -3,6 +3,8 @@ import { EckoAdapter } from './adapters/EckoAdapter';
 import { SpireKeyAdapter } from './adapters/SpireKeyAdapter';
 import { getBalance } from './services/BalanceService';
 
+declare const ace: any;
+
 (async () => {
   console.log('🟢 App starting');
   const adapters = [] as any[];
@@ -51,5 +53,19 @@ import { getBalance } from './services/BalanceService';
     <p><strong>Connected with:</strong> ${walletService.name}</p>
     <p><strong>Account:</strong> ${account}</p>
     <p><strong>Total Balance:</strong> ${totalBalance}</p>
+    <div id="editor"></div>
+    <button id="submitBtn">Submit</button>
+    <pre id="response"></pre>
   `;
+
+  const editor = ace.edit('editor');
+  editor.setTheme('ace/theme/monokai');
+  editor.session.setMode('ace/mode/javascript');
+
+  const submit = document.getElementById('submitBtn') as HTMLButtonElement;
+  const response = document.getElementById('response') as HTMLElement;
+  submit.addEventListener('click', () => {
+    const code = editor.getValue();
+    response.textContent = `Command submitted:\n${code}`;
+  });
 })();
