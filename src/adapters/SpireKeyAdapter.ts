@@ -5,11 +5,16 @@ export class SpireKeyAdapter implements IWalletAdapter {
   name = 'SpireKey';
   private acct: any;
 
-  async detect() { return true; }
+  async detect() {
+    console.log('🟢 SpireKey adapter available');
+    return true;
+  }
 
   async connect() {
+    console.log('🟢 Connecting to SpireKey');
     this.acct = await spireConnect('testnet04', '5');
     await this.acct.isReady();
+    console.log('🟢 Connected to SpireKey');
   }
 
   async getAccounts() {

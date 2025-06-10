@@ -3,10 +3,16 @@ import { EckoAdapter } from './adapters/EckoAdapter';
 import { SpireKeyAdapter } from './adapters/SpireKeyAdapter';
 
 (async () => {
+  console.log('🟢 App starting');
   const adapters = [] as any[];
 
   const ecko = await EckoAdapter.detect();
-  if (ecko) adapters.push(ecko);
+  if (ecko) {
+    console.log('🟢 Using eckoWALLET adapter');
+    adapters.push(ecko);
+  } else {
+    console.log('🟡 eckoWALLET not found');
+  }
 
   adapters.push(new SpireKeyAdapter());
 

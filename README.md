@@ -20,3 +20,9 @@ npm run dev
 ```
 
 Open `http://localhost:5173` in your browser and connect the SpireKey extension to view the balance.
+
+## Debugging wallet connection
+
+If you encounter issues with the wallet staying on the loading state, open the browser console and copy the log output. The application now prints messages with emojis (`🟢`, `🟡`, `🔵`, `🟠`) to help trace each step of the connection process.
+
+You can run `npm run dev` and then capture the console output after reloading the page. Share the logs so the issue can be diagnosed.
