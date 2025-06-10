@@ -2,7 +2,7 @@ import { WalletService } from './services/WalletService';
 import { EckoAdapter } from './adapters/EckoAdapter';
 import { SpireKeyAdapter } from './adapters/SpireKeyAdapter';
 import { getBalance } from './services/BalanceService';
-import { defaultPresets } from './presets';
+import { defaultPresets, Preset } from './presets';
 
 declare const ace: any;
 
@@ -51,16 +51,23 @@ declare const ace: any;
   }
 
   // Load presets from localStorage or defaults
-  let presets: string[] = [];
+  let presets: Preset[] = [];
   try {
     presets = JSON.parse(localStorage.getItem('pactPresets') || '[]');
   } catch {
     presets = [];
   }
+  if (presets.length > 0 && typeof (presets as any)[0] === 'string') {
+    presets = (presets as unknown as string[]).map((content, i) => ({
+      name: `Preset ${i + 1}`,
+      content
+    }));
+  }
   if (presets.length === 0) {
     presets = [...defaultPresets];
     localStorage.setItem('pactPresets', JSON.stringify(presets));
   }
+  const savePresets = () => localStorage.setItem('pactPresets', JSON.stringify(presets));
   let currentTab = 0;
 
   document.getElementById('app')!.innerHTML = `
@@ -80,16 +87,73 @@ declare const ace: any;
 
   const renderTabs = () => {
     tabsEl.innerHTML = '';
-    presets.forEach((_, idx) => {
+    presets.forEach((preset, idx) => {
       const btn = document.createElement('button');
-      btn.textContent = `Preset ${idx + 1}`;
       btn.className = 'tab' + (idx === currentTab ? ' active' : '');
-      btn.addEventListener('click', () => {
-        presets[currentTab] = editor.getValue();
-        currentTab = idx;
-        editor.setValue(presets[currentTab], -1);
+      btn.setAttribute('draggable', 'true');
+
+      const label = document.createElement('span');
+      label.className = 'label';
+      label.textContent = preset.name;
+      label.addEventListener('dblclick', e => {
+        e.stopPropagation();
+        const newName = prompt('Rename tab', preset.name);
+        if (newName) {
+          preset.name = newName;
+          savePresets();
+          renderTabs();
+        }
+      });
+
+      const close = document.createElement('span');
+      close.className = 'close';
+      close.textContent = '×';
+      close.addEventListener('click', e => {
+        e.stopPropagation();
+        presets.splice(idx, 1);
+        if (presets.length === 0) {
+          presets.push({ name: 'Preset 1', content: '' });
+          currentTab = 0;
+        } else if (currentTab >= presets.length) {
+          currentTab = presets.length - 1;
+        }
+        editor.setValue(presets[currentTab].content, -1);
+        savePresets();
         renderTabs();
       });
+
+      btn.addEventListener('click', () => {
+        presets[currentTab].content = editor.getValue();
+        currentTab = idx;
+        editor.setValue(presets[currentTab].content, -1);
+        renderTabs();
+      });
+
+      btn.addEventListener('dragstart', e => {
+        e.dataTransfer?.setData('text/plain', String(idx));
+      });
+      btn.addEventListener('dragover', e => {
+        e.preventDefault();
+      });
+      btn.addEventListener('drop', e => {
+        e.preventDefault();
+        const from = parseInt(e.dataTransfer?.getData('text/plain') || '', 10);
+        if (isNaN(from) || from === idx) return;
+        const item = presets.splice(from, 1)[0];
+        presets.splice(idx, 0, item);
+        if (currentTab === from) {
+          currentTab = idx;
+        } else if (from < currentTab && idx >= currentTab) {
+          currentTab--;
+        } else if (from > currentTab && idx <= currentTab) {
+          currentTab++;
+        }
+        savePresets();
+        renderTabs();
+      });
+
+      btn.appendChild(label);
+      btn.appendChild(close);
       tabsEl.appendChild(btn);
     });
     const add = document.createElement('button');
@@ -97,9 +161,9 @@ declare const ace: any;
     add.textContent = '+';
     add.className = 'tab';
     add.addEventListener('click', () => {
-      presets.push('');
+      presets.push({ name: `Preset ${presets.length + 1}`, content: '' });
       currentTab = presets.length - 1;
-      localStorage.setItem('pactPresets', JSON.stringify(presets));
+      savePresets();
       editor.setValue('', -1);
       renderTabs();
     });
@@ -107,10 +171,12 @@ declare const ace: any;
   };
 
   renderTabs();
-  editor.setValue(presets[currentTab], -1);
+  editor.setValue(presets[currentTab].content, -1);
   editor.session.on('change', () => {
-    presets[currentTab] = editor.getValue();
-    localStorage.setItem('pactPresets', JSON.stringify(presets));
+    if (presets[currentTab]) {
+      presets[currentTab].content = editor.getValue();
+      savePresets();
+    }
   });
 
   const submit = document.getElementById('submitBtn') as HTMLButtonElement;
