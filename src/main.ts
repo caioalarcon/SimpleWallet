@@ -2,6 +2,9 @@ import { WalletService } from './services/WalletService';
 import { EckoAdapter } from './adapters/EckoAdapter';
 import { SpireKeyAdapter } from './adapters/SpireKeyAdapter';
 import { getBalance } from './services/BalanceService';
+import { defaultPresets } from './presets';
+
+declare const ace: any;
 
 (async () => {
   console.log('🟢 App starting');
@@ -47,9 +50,73 @@ import { getBalance } from './services/BalanceService';
     console.error('⚠️ Balance fetch error:', err);
   }
 
+  // Load presets from localStorage or defaults
+  let presets: string[] = [];
+  try {
+    presets = JSON.parse(localStorage.getItem('pactPresets') || '[]');
+  } catch {
+    presets = [];
+  }
+  if (presets.length === 0) {
+    presets = [...defaultPresets];
+    localStorage.setItem('pactPresets', JSON.stringify(presets));
+  }
+  let currentTab = 0;
+
   document.getElementById('app')!.innerHTML = `
     <p><strong>Connected with:</strong> ${walletService.name}</p>
     <p><strong>Account:</strong> ${account}</p>
     <p><strong>Total Balance:</strong> ${totalBalance}</p>
+    <div id="tabs"></div>
+    <div id="editor"></div>
+    <button id="submitBtn">Submit</button>
+    <pre id="response"></pre>
   `;
+
+  const tabsEl = document.getElementById('tabs')!;
+  const editor = ace.edit('editor');
+  editor.setTheme('ace/theme/monokai');
+  editor.session.setMode('ace/mode/javascript');
+
+  const renderTabs = () => {
+    tabsEl.innerHTML = '';
+    presets.forEach((_, idx) => {
+      const btn = document.createElement('button');
+      btn.textContent = `Preset ${idx + 1}`;
+      btn.className = 'tab' + (idx === currentTab ? ' active' : '');
+      btn.addEventListener('click', () => {
+        presets[currentTab] = editor.getValue();
+        currentTab = idx;
+        editor.setValue(presets[currentTab], -1);
+        renderTabs();
+      });
+      tabsEl.appendChild(btn);
+    });
+    const add = document.createElement('button');
+    add.id = 'addTab';
+    add.textContent = '+';
+    add.className = 'tab';
+    add.addEventListener('click', () => {
+      presets.push('');
+      currentTab = presets.length - 1;
+      localStorage.setItem('pactPresets', JSON.stringify(presets));
+      editor.setValue('', -1);
+      renderTabs();
+    });
+    tabsEl.appendChild(add);
+  };
+
+  renderTabs();
+  editor.setValue(presets[currentTab], -1);
+  editor.session.on('change', () => {
+    presets[currentTab] = editor.getValue();
+    localStorage.setItem('pactPresets', JSON.stringify(presets));
+  });
+
+  const submit = document.getElementById('submitBtn') as HTMLButtonElement;
+  const response = document.getElementById('response') as HTMLElement;
+  submit.addEventListener('click', () => {
+    const code = editor.getValue();
+    response.textContent = `Command submitted:\n${code}`;
+  });
 })();

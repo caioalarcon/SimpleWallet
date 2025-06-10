@@ -3,6 +3,44 @@
   <head>
     <meta charset="utf-8" />
     <title>Kadena Balance</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 20px;
+      }
+      #tabs {
+        margin-top: 20px;
+      }
+      .tab {
+        display: inline-block;
+        padding: 5px 10px;
+        border: 1px solid #ccc;
+        border-bottom: none;
+        cursor: pointer;
+        background: #eee;
+        margin-right: 2px;
+      }
+      .tab.active {
+        background: #fff;
+        font-weight: bold;
+      }
+      #editor {
+        height: 200px;
+        border: 1px solid #ccc;
+        border-top: none;
+      }
+      #submitBtn {
+        margin-top: 10px;
+      }
+      #response {
+        margin-top: 20px;
+        white-space: pre-wrap;
+        border: 1px solid #ccc;
+        padding: 10px;
+        min-height: 100px;
+      }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.1/ace.js"></script>
   </head>
   <body>
     <div id="app">Loading...</div>
