@@ -1,36 +1,49 @@
 import { IWalletAdapter } from './IWalletAdapter';
-import { eckoAdapter } from '@kadena/wallet-adapter-ecko';
+import { EckoWalletAdapter, detectEckoProvider } from '@kadena/wallet-adapter-ecko';
 
 export class EckoAdapter implements IWalletAdapter {
   name = 'eckoWALLET';
-  private impl: any;
+  private impl!: EckoWalletAdapter;
 
   static async detect(): Promise<EckoAdapter | null> {
     console.log('🟢 Checking for eckoWALLET extension');
-    try {
-      const provider = await eckoAdapter.detect();
-      if (!provider) {
-        console.log('🟡 eckoWALLET not detected');
-        return null;
-      }
-      const impl = await eckoAdapter.adapter(provider);
-      const instance = new EckoAdapter();
-      instance.impl = impl;
-      console.log('🟢 eckoWALLET detected and adapter initialized');
-      return instance;
-    } catch (err) {
-      console.error('🟠 Error detecting eckoWALLET', err);
+    const provider = await detectEckoProvider();
+    if (!provider) {
+      console.log('🟡 eckoWALLET provider not found');
       return null;
     }
+    console.log('🟢 eckoWALLET provider found');
+    const impl = new EckoWalletAdapter(provider);
+    return new EckoAdapter(impl);
   }
 
-  async detect() { return true; }
-  async connect() {
+  constructor(impl: EckoWalletAdapter) {
+    this.impl = impl;
+  }
+
+  async detect(): Promise<boolean> {
+    return true;
+  }
+
+  async connect(): Promise<void> {
     console.log('🟢 Connecting to eckoWALLET');
     await this.impl.connect();
     console.log('🟢 Connected to eckoWALLET');
   }
-  async getAccounts() { return await this.impl.getAccounts(); }
-  async signTransaction(cmd: any) { return await this.impl.sign(cmd); }
-  async sendTransaction(signed: any) { return await this.impl.send(signed); }
+
+  async getAccounts(): Promise<{ account: string; chainIds: string[] }[]> {
+    console.log('🔵 EckoAdapter: get active account');
+    const acc = await this.impl.getActiveAccount();
+    const accountName = typeof acc === 'string' ? acc : acc.accountName;
+    console.log('🔵 Active account string:', accountName);
+    return [{ account: accountName, chainIds: ['5'] }];
+  }
+
+  async signTransaction(cmd: any): Promise<any> {
+    return this.impl.sign(cmd);
+  }
+
+  async sendTransaction(signed: any): Promise<any> {
+    return this.impl.send(signed);
+  }
 }
