@@ -108,10 +108,10 @@ function buildBalanceCommand(account: string, chainId: string) {
           <button id="signBtn">Sign</button>
           <button id="submitBtn">Local</button>
         </div>
+        <pre id="signed"></pre>
       </div>
       <div id="rightPane">
         <pre id="response"></pre>
-        <pre id="signed"></pre>
       </div>
     </div>
   `;
