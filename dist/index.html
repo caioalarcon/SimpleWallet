@@ -19,10 +19,16 @@
         cursor: pointer;
         background: #eee;
         margin-right: 2px;
+        user-select: none;
       }
       .tab.active {
         background: #fff;
         font-weight: bold;
+      }
+      .tab .close {
+        margin-left: 5px;
+        color: red;
+        cursor: pointer;
       }
       #editor {
         height: 200px;
@@ -41,7 +47,8 @@
       }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.1/ace.js"></script>
-    <script type="module" crossorigin src="/assets/index-DspbI9uv.js"></script>
+    <script type="module" crossorigin src="/assets/main-BV78sgQT.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
   </head>
   <body>
     <div id="app">Loading...</div>
