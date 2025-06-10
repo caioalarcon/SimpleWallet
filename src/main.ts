@@ -4,6 +4,7 @@ import { SpireKeyAdapter } from './adapters/SpireKeyAdapter';
 import { getBalance } from './services/BalanceService';
 import { defaultPresets, Preset } from './presets';
 import { executeLocal } from './services/PactCommandService';
+import { formatForSigning } from './services/SigningService';
 import Pact from 'pact-lang-api';
 
 declare const ace: any;
@@ -108,7 +109,10 @@ function buildBalanceCommand(account: string, chainId: string) {
           <button id="submitBtn">Local</button>
         </div>
       </div>
-      <pre id="response"></pre>
+      <div id="rightPane">
+        <pre id="response"></pre>
+        <pre id="signed"></pre>
+      </div>
     </div>
   `;
 
@@ -214,6 +218,7 @@ function buildBalanceCommand(account: string, chainId: string) {
   const submit = document.getElementById('submitBtn') as HTMLButtonElement;
   const sign = document.getElementById('signBtn') as HTMLButtonElement;
   const response = document.getElementById('response') as HTMLElement;
+  const signedOut = document.getElementById('signed') as HTMLElement;
   submit.addEventListener('click', async () => {
     const text = editor.getValue().trim();
     let cmd: any;
@@ -242,18 +247,19 @@ function buildBalanceCommand(account: string, chainId: string) {
     try {
       cmd = JSON.parse(text);
     } catch (err) {
-      response.textContent = `Invalid JSON: ${err}`;
+      signedOut.textContent = `Invalid JSON: ${err}`;
       return;
     }
     if (!cmd.networkId || !/^testnet/i.test(cmd.networkId)) {
-      response.textContent = 'Error: commands are allowed only on the testnet';
+      signedOut.textContent = 'Error: commands are allowed only on the testnet';
       return;
     }
     try {
-      const res = await walletService.signAndSend(cmd);
-      response.textContent = JSON.stringify(res, null, 2);
+      const unsigned = formatForSigning(cmd);
+      const signed = await walletService.signTransaction(unsigned);
+      signedOut.textContent = JSON.stringify(signed, null, 2);
     } catch (err) {
-      response.textContent = `Error signing or sending: ${err}`;
+      signedOut.textContent = `Error signing: ${err}`;
     }
   });
 })();

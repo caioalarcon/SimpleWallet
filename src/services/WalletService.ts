@@ -46,4 +46,10 @@ export class WalletService {
     console.log('🔵 Sending transaction');
     return await this.active.sendTransaction(signed);
   }
+
+  async signTransaction(cmd: any) {
+    if (!this.active) throw new Error('No active wallet');
+    console.log('🔵 Signing transaction only');
+    return await this.active.signTransaction(cmd);
+  }
 }
