@@ -1,12 +1,11 @@
 import Pact from 'pact-lang-api';
+import { executeLocal } from './PactCommandService';
 
 export async function getBalance(
   account: string,
   chainId: string
 ): Promise<number> {
-  const BASE = 'https://api.testnet.chainweb.com/chainweb/0.0';
   const networkId = 'testnet04';
-  const API_HOST = `${BASE}/${networkId}/chain/${chainId}/pact`;
   const cmd = {
     pactCode: `(coin.get-balance "${account}")`,
     envData: {},
@@ -20,6 +19,6 @@ export async function getBalance(
     ),
     networkId,
   };
-  const res = await Pact.fetch.local(cmd, API_HOST);
+  const res = await executeLocal(cmd, chainId, networkId);
   return res.result?.data ?? 0;
 }
