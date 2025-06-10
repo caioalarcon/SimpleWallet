@@ -100,9 +100,16 @@ function buildBalanceCommand(account: string, chainId: string) {
     <p><strong>Account:</strong> ${account}</p>
     <p><strong>Total Balance:</strong> ${totalBalance}</p>
     <div id="tabs"></div>
-    <div id="editor"></div>
-    <button id="submitBtn">Submit</button>
-    <pre id="response"></pre>
+    <div id="mainRow">
+      <div id="leftPane">
+        <div id="editor"></div>
+        <div id="buttonRow">
+          <button id="signBtn">Sign</button>
+          <button id="submitBtn">Local</button>
+        </div>
+      </div>
+      <pre id="response"></pre>
+    </div>
   `;
 
   const tabsEl = document.getElementById('tabs')!;
@@ -205,6 +212,7 @@ function buildBalanceCommand(account: string, chainId: string) {
   });
 
   const submit = document.getElementById('submitBtn') as HTMLButtonElement;
+  const sign = document.getElementById('signBtn') as HTMLButtonElement;
   const response = document.getElementById('response') as HTMLElement;
   submit.addEventListener('click', async () => {
     const text = editor.getValue().trim();
@@ -225,6 +233,27 @@ function buildBalanceCommand(account: string, chainId: string) {
       response.textContent = JSON.stringify(res, null, 2);
     } catch (err) {
       response.textContent = `Error executing command: ${err}`;
+    }
+  });
+
+  sign.addEventListener('click', async () => {
+    const text = editor.getValue().trim();
+    let cmd: any;
+    try {
+      cmd = JSON.parse(text);
+    } catch (err) {
+      response.textContent = `Invalid JSON: ${err}`;
+      return;
+    }
+    if (!cmd.networkId || !/^testnet/i.test(cmd.networkId)) {
+      response.textContent = 'Error: commands are allowed only on the testnet';
+      return;
+    }
+    try {
+      const res = await walletService.signAndSend(cmd);
+      response.textContent = JSON.stringify(res, null, 2);
+    } catch (err) {
+      response.textContent = `Error signing or sending: ${err}`;
     }
   });
 })();

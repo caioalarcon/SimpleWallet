@@ -35,15 +35,29 @@
         border: 1px solid #ccc;
         border-top: none;
       }
-      #submitBtn {
+      #mainRow {
+        display: flex;
+        align-items: flex-start;
+        margin-top: 20px;
+      }
+      #leftPane {
+        flex: 1;
+      }
+      #buttonRow {
+        display: flex;
+        justify-content: space-between;
         margin-top: 10px;
       }
+      #submitBtn {
+        margin-left: 10px;
+      }
       #response {
-        margin-top: 20px;
+        margin-left: 20px;
         white-space: pre-wrap;
         border: 1px solid #ccc;
         padding: 10px;
         min-height: 100px;
+        width: 50%;
       }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.1/ace.js"></script>
