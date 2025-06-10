@@ -2,6 +2,8 @@ import { WalletService } from './services/WalletService';
 import { EckoAdapter } from './adapters/EckoAdapter';
 import { SpireKeyAdapter } from './adapters/SpireKeyAdapter';
 import { getBalance } from './services/BalanceService';
+import { executeLocal } from './services/PactCommandService';
+import Pact from 'pact-lang-api';
 import { defaultPresets } from './presets';
 
 declare const ace: any;
@@ -59,7 +61,11 @@ declare const ace: any;
   }
   if (presets.length === 0) {
     presets = [...defaultPresets];
+    presets[0] = `(coin.get-balance "${account}")`;
     localStorage.setItem('pactPresets', JSON.stringify(presets));
+  }
+  if (presets[0].includes('(coin.get-balance')) {
+    presets[0] = `(coin.get-balance "${account}")`;
   }
   let currentTab = 0;
 
@@ -115,8 +121,31 @@ declare const ace: any;
 
   const submit = document.getElementById('submitBtn') as HTMLButtonElement;
   const response = document.getElementById('response') as HTMLElement;
-  submit.addEventListener('click', () => {
-    const code = editor.getValue();
-    response.textContent = `Command submitted:\n${code}`;
+  submit.addEventListener('click', async () => {
+    const code = editor.getValue().trim();
+    if (/mainnet/i.test(code)) {
+      response.textContent = 'Error: commands are allowed only on the testnet';
+      return;
+    }
+    const chainId = chainIds[0];
+    const cmd = {
+      pactCode: code,
+      envData: {},
+      meta: Pact.lang.mkMeta(
+        account,
+        chainId,
+        0.00000001,
+        1000,
+        Math.floor(Date.now() / 1000),
+        28800
+      ),
+      networkId: 'testnet04',
+    };
+    try {
+      const res = await executeLocal(cmd, chainId, 'testnet04');
+      response.textContent = JSON.stringify(res, null, 2);
+    } catch (err) {
+      response.textContent = `Error executing command: ${err}`;
+    }
   });
 })();
