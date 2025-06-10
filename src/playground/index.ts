@@ -26,24 +26,14 @@ const state: State = {
 const els = {
   pactEditor: document.getElementById('pactEditor') as HTMLTextAreaElement,
   btnLocal: document.getElementById('btnLocal') as HTMLButtonElement,
-  divLocalResult: document.getElementById('divLocalResult') as HTMLElement,
+  localResult: document.getElementById('localResult') as HTMLElement,
   btnSign: document.getElementById('btnSign') as HTMLButtonElement,
-  divSigned: document.getElementById('divSigned') as HTMLElement,
+  signedPayload: document.getElementById('signedPayload') as HTMLElement,
   btnSend: document.getElementById('btnSend') as HTMLButtonElement,
-  divSendResult: document.getElementById('divSendResult') as HTMLElement,
+  sendResult: document.getElementById('sendResult') as HTMLElement,
   btnListen: document.getElementById('btnListen') as HTMLButtonElement,
   btnPoll: document.getElementById('btnPoll') as HTMLButtonElement,
-  divTxResult: document.getElementById('divTxResult') as HTMLElement,
-  settingsBtn: document.getElementById('settingsBtn') as HTMLButtonElement,
-  settingsModal: document.getElementById('settingsModal') as HTMLDivElement,
-  saveSettings: document.getElementById('saveSettings') as HTMLButtonElement,
-  cancelSettings: document.getElementById('cancelSettings') as HTMLButtonElement,
-  inputNetwork: document.getElementById('setNetworkId') as HTMLInputElement,
-  inputChain: document.getElementById('setChainId') as HTMLInputElement,
-  inputSender: document.getElementById('setSender') as HTMLInputElement,
-  inputGasLimit: document.getElementById('setGasLimit') as HTMLInputElement,
-  inputGasPrice: document.getElementById('setGasPrice') as HTMLInputElement,
-  inputTTL: document.getElementById('setTtl') as HTMLInputElement,
+  txResult: document.getElementById('txResult') as HTMLElement,
 };
 
 function loadDefaults(): Defaults {
@@ -65,41 +55,20 @@ function loadDefaults(): Defaults {
 
 let defaults = loadDefaults();
 
-function openSettings() {
-  els.inputNetwork.value = defaults.networkId;
-  els.inputChain.value = defaults.chainId;
-  els.inputSender.value = defaults.sender;
-  els.inputGasLimit.value = String(defaults.gasLimit);
-  els.inputGasPrice.value = String(defaults.gasPrice);
-  els.inputTTL.value = String(defaults.ttl);
-  els.settingsModal.style.display = 'block';
-}
-
-function closeSettings() {
-  els.settingsModal.style.display = 'none';
-}
-
-els.settingsBtn.addEventListener('click', openSettings);
-els.cancelSettings.addEventListener('click', closeSettings);
-els.saveSettings.addEventListener('click', () => {
-  defaults = {
-    networkId: els.inputNetwork.value,
-    chainId: els.inputChain.value,
-    sender: els.inputSender.value,
-    gasLimit: Number(els.inputGasLimit.value),
-    gasPrice: Number(els.inputGasPrice.value),
-    ttl: Number(els.inputTTL.value),
-  };
-  localStorage.setItem(DEFAULTS_KEY, JSON.stringify(defaults));
-  closeSettings();
-});
-
 function showError(el: HTMLElement, err: any) {
   const banner = document.createElement('div');
   banner.style.color = 'red';
   banner.textContent = JSON.stringify(err);
   el.innerHTML = '';
   el.appendChild(banner);
+}
+
+function toast(msg: string) {
+  const div = document.createElement('div');
+  div.className = 'toast';
+  div.textContent = msg;
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), 2000);
 }
 
 async function post(endpoint: string, body: any) {
@@ -126,9 +95,9 @@ els.btnLocal.addEventListener('click', async () => {
   const body = { pactCode, envData: {}, meta, networkId: defaults.networkId };
   try {
     const res = await post('/local', body);
-    els.divLocalResult.textContent = JSON.stringify(res, null, 2);
+    els.localResult.textContent = JSON.stringify(res, null, 2);
   } catch (err) {
-    showError(els.divLocalResult, err);
+    showError(els.localResult, err);
   }
 });
 
@@ -151,18 +120,19 @@ els.btnSign.addEventListener('click', async () => {
   const cmd = JSON.stringify(command);
   const hash = await sha256Hex(cmd);
   try {
-    const sigs = await (window as any).kadena.requestSign({ pactCommand: command });
+    const res = await (window as any).kadena.requestSign({ pactCommand: command });
+    const signedSigs = (res && res.sigs) || res;
     state.cmd = cmd;
     state.hash = hash;
-    state.sigs = sigs;
+    state.sigs = signedSigs;
     state.signedReady = true;
     els.btnSend.disabled = false;
-    els.divSigned.textContent = JSON.stringify({ cmd, hash, sigs }, null, 2);
+    els.signedPayload.textContent = JSON.stringify({ cmd, hash, sigs: signedSigs }, null, 2);
   } catch (err: any) {
     if (err?.type === 'userCancelled') {
-      alert('Signing aborted');
+      toast('Signing aborted');
     } else {
-      showError(els.divSigned, err);
+      showError(els.signedPayload, err);
     }
   }
 });
@@ -172,13 +142,13 @@ els.btnSend.addEventListener('click', async () => {
   const body = { cmd: state.cmd, hash: state.hash, sigs: state.sigs };
   try {
     const res = await post('/send', body);
-    els.divSendResult.textContent = JSON.stringify(res, null, 2);
+    els.sendResult.textContent = JSON.stringify(res, null, 2);
     const key = res.requestKeys?.[0] || res.requestKey;
     state.requestKey = key;
     els.btnListen.disabled = !key;
     els.btnPoll.disabled = !key;
   } catch (err) {
-    showError(els.divSendResult, err);
+    showError(els.sendResult, err);
   }
 });
 
@@ -186,18 +156,16 @@ els.btnListen.addEventListener('click', async () => {
   if (!state.requestKey) return;
   try {
     const res = await post('/listen', { requestKey: state.requestKey });
-    els.divTxResult.textContent = JSON.stringify(res, null, 2);
+    els.txResult.textContent = JSON.stringify(res, null, 2);
   } catch (err) {
-    showError(els.divTxResult, err);
+    showError(els.txResult, err);
   }
 });
 
 els.btnPoll.addEventListener('click', async () => {
   if (!state.requestKey) return;
   els.btnPoll.disabled = true;
-  const spinner = document.createElement('span');
-  spinner.textContent = '⏳';
-  els.btnPoll.parentElement?.appendChild(spinner);
+  els.btnPoll.classList.add('loading');
   try {
     let done = false;
     while (!done) {
@@ -205,14 +173,14 @@ els.btnPoll.addEventListener('click', async () => {
       if (Object.keys(res).length === 0 || res[state.requestKey].result.status === 'pending') {
         await new Promise(r => setTimeout(r, 3000));
       } else {
-        els.divTxResult.textContent = JSON.stringify(res, null, 2);
+        els.txResult.textContent = JSON.stringify(res, null, 2);
         done = true;
       }
     }
   } catch (err) {
-    showError(els.divTxResult, err);
+    showError(els.txResult, err);
   } finally {
-    spinner.remove();
+    els.btnPoll.classList.remove('loading');
     els.btnPoll.disabled = false;
   }
 });
