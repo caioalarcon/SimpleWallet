@@ -1,12 +1,15 @@
 import { IWalletAdapter } from './IWalletAdapter';
 import { detectEckoProvider, EckoWalletAdapter } from '@kadena/wallet-adapter-ecko';
 
+/**
+ * EckoAdapter implemente IWalletAdapter para integração com eckoWALLET.
+ */
 export class EckoAdapter implements IWalletAdapter {
   name = 'eckoWALLET';
   private impl: EckoWalletAdapter;
 
   /**
-   * Detecta se o eckoWALLET provider está disponível, aguardando até timeoutMs.
+   * Detecta o provider eckoWALLET, aguardando até timeoutMs milissegundos.
    */
   static async detect(timeoutMs = 8000): Promise<EckoAdapter | null> {
     console.log(`🔍 Detecting eckoWALLET provider (timeout ${timeoutMs}ms)...`);
@@ -16,7 +19,6 @@ export class EckoAdapter implements IWalletAdapter {
       const provider = await detectEckoProvider({ silent: true });
       if (provider) {
         console.log('🟢 eckoWALLET provider found');
-        // Manual instantiation conforme docs: passar objeto { provider }
         const impl = new EckoWalletAdapter({ provider });
         return new EckoAdapter(impl);
       }
@@ -30,32 +32,46 @@ export class EckoAdapter implements IWalletAdapter {
     this.impl = impl;
   }
 
-  /** Sempre retorna true, pois detect() já garantiu o provider */
+  /**
+   * Sempre retorna true, pois o provider já foi validado em detect().
+   */
   async detect(): Promise<boolean> {
     return true;
   }
 
-  /** Dispara popup de conexão e aguarda autorização */
+  /**
+   * Dispara popup de conexão da extensão e aguarda autorização do usuário.
+   */
   async connect(): Promise<void> {
     console.log('🟢 Prompting user to connect eckoWALLET');
     await this.impl.connect();
     console.log('🟢 eckoWALLET connected');
   }
 
-  /** Retorna a conta ativa após conexão */
+  /**
+   * Retorna a conta ativa e todos os chain IDs da rede Kadena (0-19).
+   */
   async getAccounts(): Promise<{ account: string; chainIds: string[] }[]> {
     console.log('🔵 Getting active account from eckoWALLET');
     const acc = await this.impl.getActiveAccount();
     const accountName = typeof acc === 'string' ? acc : acc.accountName;
-    console.log(`🔵 Active account: ${accountName}`);
-    return [{ account: accountName, chainIds: ['5'] }];
+    // Testnet/mainnet têm 20 chains (0 a 19)
+    const chainIds = Array.from({ length: 20 }, (_, i) => i.toString());
+    console.log(`🔵 Active account: ${accountName}, chainIds: ${chainIds.join(',')}`);
+    return [{ account: accountName, chainIds }];
   }
 
+  /**
+   * Assina o comando usando eckoWALLET.
+   */
   async signTransaction(cmd: any): Promise<any> {
     console.log('🔵 Signing transaction with eckoWALLET');
     return this.impl.sign(cmd);
   }
 
+  /**
+   * Envia a transação assinada via eckoWALLET.
+   */
   async sendTransaction(signed: any): Promise<any> {
     console.log('🔵 Sending transaction via eckoWALLET');
     return this.impl.send(signed);
