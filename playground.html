@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Pact Playground</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    textarea { width: 100%; height: 150px; }
+    button { margin-right: 5px; margin-top: 10px; }
+    pre.jsonOut { white-space: pre-wrap; border: 1px solid #ccc; padding: 10px; min-height: 80px; background: #f9f9f9; margin-top: 5px; }
+    .loading::after { content: ''; display: inline-block; width: 12px; height: 12px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; margin-left: 5px; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+
+<textarea id="pactEditor"></textarea>
+<div>
+  <button id="btnLocal">Local</button>
+  <button id="btnSign">Sign</button>
+</div>
+<pre id="localResult" class="jsonOut readonly"></pre>
+<label>Local Simulation Result</label>
+
+<pre id="signedPayload" class="jsonOut readonly"></pre>
+<label>Signed Transaction Payload – Ready to Send</label>
+
+<button id="btnSend" disabled>Send</button>
+<pre id="sendResult" class="jsonOut readonly"></pre>
+<label>/send Response (requestKey)</label>
+
+<div>
+  <button id="btnListen" disabled>Listen</button>
+  <button id="btnPoll" disabled>Poll</button>
+</div>
+<pre id="txResult" class="jsonOut readonly"></pre>
+<label>Transaction Result</label>
+
+<script>
+(() => {
+  // hidden defaults
+  const networkId = 'testnet04';
+  const chainId = '1';
+  const sender = 'kadena';
+  const gasLimit = 1000;
+  const gasPrice = 0.00000001;
+  const ttl = 28800;
+  const pubKey = 'replace-with-pubkey';
+  const meta = { chainId, sender, gasLimit, gasPrice, ttl, creationTime: Math.floor(Date.now()/1000) };
+
+  const API_HOST = `https://api.testnet.chainweb.com/chainweb/0.0/${networkId}/chain/${chainId}/pact`;
+
+  const state = { signed: null, reqKey: null };
+
+  const pactEditor = document.getElementById('pactEditor');
+  const btnLocal = document.getElementById('btnLocal');
+  const btnSign = document.getElementById('btnSign');
+  const btnSend = document.getElementById('btnSend');
+  const btnListen = document.getElementById('btnListen');
+  const btnPoll = document.getElementById('btnPoll');
+  const localResult = document.getElementById('localResult');
+  const signedPayload = document.getElementById('signedPayload');
+  const sendResult = document.getElementById('sendResult');
+  const txResult = document.getElementById('txResult');
+
+  function updateButtons() {
+    btnSend.disabled = !state.signed;
+    btnListen.disabled = !state.reqKey;
+    btnPoll.disabled = !state.reqKey;
+  }
+
+  async function sha256(message) {
+    const data = new TextEncoder().encode(message);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  btnLocal.addEventListener('click', async () => {
+    const code = pactEditor.value;
+    const command = { networkId, payload: { exec: { code, data: {} } }, signers: [], meta };
+    const res = await fetch(`${API_HOST}/api/v1/local`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(command)
+    }).then(r => r.json());
+    localResult.textContent = JSON.stringify(res, null, 2);
+  });
+
+  btnSign.addEventListener('click', async () => {
+    const code = pactEditor.value;
+    const command = { networkId, payload: { exec: { code, data: {} } }, signers: [{ pubKey }], meta };
+    const cmd = JSON.stringify(command);
+    const hash = await sha256(cmd);
+    const { sigs } = await window.kadena.requestSign({ pactCommand: command });
+    state.signed = { cmd, hash, sigs };
+    signedPayload.textContent = JSON.stringify(state.signed, null, 2);
+    updateButtons();
+  });
+
+  btnSend.addEventListener('click', async () => {
+    if (!state.signed) return;
+    const res = await fetch(`${API_HOST}/api/v1/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state.signed)
+    }).then(r => r.json());
+    sendResult.textContent = JSON.stringify(res, null, 2);
+    state.reqKey = res.requestKey || (res.requestKeys && res.requestKeys[0]);
+    updateButtons();
+  });
+
+  btnListen.addEventListener('click', async () => {
+    if (!state.reqKey) return;
+    const res = await fetch(`${API_HOST}/api/v1/listen`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ listen: state.reqKey })
+    }).then(r => r.json());
+    txResult.textContent = JSON.stringify(res, null, 2);
+  });
+
+  btnPoll.addEventListener('click', async () => {
+    if (!state.reqKey) return;
+    btnPoll.classList.add('loading');
+    let result = null;
+    while (!result) {
+      const res = await fetch(`${API_HOST}/api/v1/poll`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestKeys: [state.reqKey] })
+      }).then(r => r.json());
+      if (Object.keys(res).length) {
+        result = res[state.reqKey];
+        break;
+      }
+      await new Promise(r => setTimeout(r, 3000));
+    }
+    btnPoll.classList.remove('loading');
+    txResult.textContent = JSON.stringify(result, null, 2);
+  });
+})();
+</script>
+
+</body>
+</html>
