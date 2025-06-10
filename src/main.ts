@@ -103,6 +103,18 @@ function buildBalanceCommand(account: string, chainId: string) {
     <div id="editor"></div>
     <button id="submitBtn">Submit</button>
     <pre id="response"></pre>
+    <button id="signBtn">Sign</button>
+    <p id="signedLabel" style="display:none;"></p>
+    <pre id="signed"></pre>
+    <button id="sendBtn">Send</button>
+    <p id="sendLabel" style="display:none;"></p>
+    <pre id="sendResponse"></pre>
+    <div>
+      <button id="pollBtn">Poll</button>
+      <button id="listenBtn">Listen</button>
+    </div>
+    <p id="finalLabel" style="display:none;"></p>
+    <pre id="finalResponse"></pre>
   `;
 
   const tabsEl = document.getElementById('tabs')!;
@@ -206,6 +218,21 @@ function buildBalanceCommand(account: string, chainId: string) {
 
   const submit = document.getElementById('submitBtn') as HTMLButtonElement;
   const response = document.getElementById('response') as HTMLElement;
+  const signBtn = document.getElementById('signBtn') as HTMLButtonElement;
+  const signedPre = document.getElementById('signed') as HTMLElement;
+  const signedLabel = document.getElementById('signedLabel') as HTMLElement;
+  const sendBtn = document.getElementById('sendBtn') as HTMLButtonElement;
+  const sendPre = document.getElementById('sendResponse') as HTMLElement;
+  const sendLabel = document.getElementById('sendLabel') as HTMLElement;
+  const pollBtn = document.getElementById('pollBtn') as HTMLButtonElement;
+  const listenBtn = document.getElementById('listenBtn') as HTMLButtonElement;
+  const finalLabel = document.getElementById('finalLabel') as HTMLElement;
+  const finalPre = document.getElementById('finalResponse') as HTMLElement;
+
+  let signedPayload: any = null;
+  let requestKey: string | null = null;
+  let signedChainId = chainIds[0];
+  let signedNetworkId = 'testnet04';
   submit.addEventListener('click', async () => {
     const text = editor.getValue().trim();
     let cmd: any;
@@ -225,6 +252,105 @@ function buildBalanceCommand(account: string, chainId: string) {
       response.textContent = JSON.stringify(res, null, 2);
     } catch (err) {
       response.textContent = `Error executing command: ${err}`;
+    }
+  });
+
+  signBtn.addEventListener('click', async () => {
+    const text = editor.getValue().trim();
+    let cmd: any;
+    try {
+      cmd = JSON.parse(text);
+    } catch (err) {
+      signedPre.textContent = `Invalid JSON: ${err}`;
+      return;
+    }
+    cmd.envData = cmd.envData || {};
+    signedChainId = cmd.meta?.chainId || chainIds[0];
+    signedNetworkId = cmd.networkId || 'testnet04';
+    cmd.meta = cmd.meta || Pact.lang.mkMeta(
+      account,
+      signedChainId,
+      0.00000001,
+      1000,
+      Math.floor(Date.now() / 1000),
+      28800
+    );
+    cmd.networkId = signedNetworkId;
+    cmd.signers = cmd.signers || [{ pubKey: account }];
+    try {
+      signedPayload = await walletService.sign(cmd);
+      signedLabel.textContent =
+        'Signed transaction payload – ready to send to the blockchain';
+      signedLabel.style.display = 'block';
+      signedPre.textContent = JSON.stringify(signedPayload, null, 2);
+    } catch (err) {
+      signedPre.textContent = `Error signing command: ${err}`;
+    }
+  });
+
+  sendBtn.addEventListener('click', async () => {
+    if (!signedPayload) {
+      sendPre.textContent = 'No signed payload available';
+      return;
+    }
+    try {
+      const res = await walletService.send(signedPayload);
+      sendLabel.textContent =
+        'Response from /send – transaction sent to mempool';
+      sendLabel.style.display = 'block';
+      sendPre.textContent = JSON.stringify(res, null, 2);
+      requestKey = (res.requestKeys && res.requestKeys[0]) || res.requestKey;
+    } catch (err) {
+      sendPre.textContent = `Error sending transaction: ${err}`;
+    }
+  });
+
+  pollBtn.addEventListener('click', async () => {
+    if (!requestKey) {
+      finalPre.textContent = 'No request key';
+      return;
+    }
+    finalLabel.textContent = 'Polling until transaction is mined';
+    finalLabel.style.display = 'block';
+    finalPre.textContent = '';
+    const API_HOST = `https://api.testnet.chainweb.com/chainweb/0.0/${signedNetworkId}/chain/${signedChainId}/pact`;
+    while (true) {
+      try {
+        const res = await fetch(`${API_HOST}/api/v1/poll`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requestKeys: [requestKey] })
+        }).then(r => r.json());
+        if (res[requestKey]) {
+          finalPre.textContent = JSON.stringify(res[requestKey], null, 2);
+          break;
+        }
+      } catch (err) {
+        finalPre.textContent = `Error polling: ${err}`;
+        return;
+      }
+      await new Promise(r => setTimeout(r, 5000));
+    }
+  });
+
+  listenBtn.addEventListener('click', async () => {
+    if (!requestKey) {
+      finalPre.textContent = 'No request key';
+      return;
+    }
+    finalLabel.textContent = 'Waiting for transaction to be mined (listen)';
+    finalLabel.style.display = 'block';
+    finalPre.textContent = '';
+    const API_HOST = `https://api.testnet.chainweb.com/chainweb/0.0/${signedNetworkId}/chain/${signedChainId}/pact`;
+    try {
+      const res = await fetch(`${API_HOST}/api/v1/listen`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listen: requestKey })
+      }).then(r => r.json());
+      finalPre.textContent = JSON.stringify(res, null, 2);
+    } catch (err) {
+      finalPre.textContent = `Error listening: ${err}`;
     }
   });
 })();
