@@ -1,22 +1,22 @@
 # Kadena SpireKey Balance
 
-Projeto para exibir o saldo de uma conta no Kadena testnet usando a extensão SpireKey.
+Project to display the balance of an account on the Kadena testnet using the SpireKey extension.
 
-## Pré-requisitos
+## Prerequisites
 
-- Node.js v16 ou superior
-- Extensão SpireKey instalada no navegador
+- Node.js v16 or higher
+- SpireKey extension installed in your browser
 
-## Instalação
+## Installation
 
 ```bash
 npm install
 ```
 
-## Desenvolvimento
+## Development
 
 ```bash
 npm run dev
 ```
 
-Abra `http://localhost:5173` no navegador e conecte a extensão SpireKey para visualizar o saldo.
+Open `http://localhost:5173` in your browser and connect the SpireKey extension to view the balance.
