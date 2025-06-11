@@ -52,15 +52,16 @@ export class EckoAdapter implements IWalletAdapter {
     // 2. Fallback via impl.getActiveAccount()
     const acc = await this.impl.getActiveAccount();
     console.log('🔵 Fallback Account Info:', acc);
+    if (typeof acc !== 'string' && acc.publicKey) {
+      this.accountName = acc.accountName;
+      this.publicKey = acc.publicKey.replace(/^[kr]:/, '');
+      console.log('🔵 Account & pubKey set from fallback:', this.accountName, this.publicKey);
+      return;
+    }
     if (typeof acc === 'string') {
       this.accountName = acc;
-      throw new Error('EckoAdapter: publicKey não disponível em getActiveAccount');
-    } else {
-      this.accountName = acc.accountName;
-      // always use the returned publicKey and strip prefix
-      this.publicKey = acc.publicKey.replace(/^[kr]:/, '');
     }
-    console.log('🔵 Account & pubKey set from fallback:', this.accountName, this.publicKey);
+    throw new Error('EckoAdapter: não encontrei publicKey no account');
   }
 
   async getPublicKey(): Promise<string> {

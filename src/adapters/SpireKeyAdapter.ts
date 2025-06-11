@@ -25,8 +25,15 @@ export class SpireKeyAdapter implements IWalletAdapter {
   }
 
   async getPublicKey(): Promise<string> {
-    const pk = this.acct.publicKey || this.acct.accountName;
-    return pk.replace(/^[kr]:/, '');
+    const acc: any = this.acct;
+    const keys =
+      acc.accountKeys || acc.keys || acc.guard?.keys || acc.keyset?.keys;
+    if (Array.isArray(keys) && keys.length > 0) {
+      const k: any = keys[0];
+      const pk = typeof k === 'string' ? k : k.publicKey;
+      if (pk) return pk.replace(/^[kr]:/, '');
+    }
+    throw new Error('SpireKeyAdapter: publicKey não encontrada em acct');
   }
 
   async signTransaction(cmd: any) {
