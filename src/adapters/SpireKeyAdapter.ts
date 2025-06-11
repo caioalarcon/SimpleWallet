@@ -1,5 +1,5 @@
 import { IWalletAdapter } from './IWalletAdapter';
-import { connect as spireConnect } from '@kadena/spirekey-sdk';
+import { connect as spireConnect, sign as spireSign } from '@kadena/spirekey-sdk';
 
 export class SpireKeyAdapter implements IWalletAdapter {
   name = 'SpireKey';
@@ -24,8 +24,29 @@ export class SpireKeyAdapter implements IWalletAdapter {
     }];
   }
 
+  async getPublicKey(): Promise<string> {
+    const acc: any = this.acct;
+    const keys =
+      acc.accountKeys || acc.keys || acc.guard?.keys || acc.keyset?.keys;
+    if (Array.isArray(keys) && keys.length > 0) {
+      const k: any = keys[0];
+      const pk = typeof k === 'string' ? k : k.publicKey;
+      if (pk) return pk.replace(/^[kr]:/, '');
+    }
+    throw new Error('SpireKeyAdapter: publicKey não encontrada em acct');
+  }
+
   async signTransaction(cmd: any) {
-    return await this.acct.sign(cmd);
+    const networkId = cmd.networkId || 'testnet04';
+    const context = [
+      {
+        accountName: this.acct.accountName,
+        networkId,
+        chainIds: this.acct.chainIds,
+      },
+    ];
+    const { transactions } = await spireSign([cmd], context);
+    return transactions[0];
   }
 
   async sendTransaction(signed: any) {

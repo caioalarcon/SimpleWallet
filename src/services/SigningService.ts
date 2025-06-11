@@ -6,7 +6,7 @@ export function formatForSigning(cmd: any): IUnsignedCommand {
     networkId: cmd.networkId,
     payload: { exec: { code: cmd.pactCode, data: cmd.envData || {} } },
     meta: cmd.meta,
-    signers: (cmd.signers || []).map((k: string) => ({ pubKey: k })),
+    signers: Array.isArray(cmd.signers) ? cmd.signers : [],
     nonce: cmd.nonce || new Date().toISOString(),
   };
   return createTransaction(pactCommand);

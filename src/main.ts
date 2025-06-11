@@ -213,12 +213,25 @@ function buildBalanceCommand(account: string, chainId: string) {
       presets[currentTab].content = editor.getValue();
       savePresets();
     }
+    updateUnsigned().catch(() => {});
   });
 
   const submit = document.getElementById('submitBtn') as HTMLButtonElement;
   const sign = document.getElementById('signBtn') as HTMLButtonElement;
   const response = document.getElementById('response') as HTMLElement;
-  const signedOut = document.getElementById('signed') as HTMLElement;
+  const signedEl = document.getElementById('signed') as HTMLElement;
+
+  async function updateUnsigned() {
+    try {
+      const raw = JSON.parse(editor.getValue());
+      const pubKey = await walletService.getPublicKey();
+      raw.signers = [{ pubKey, clist: [{ name: 'coin.GAS', args: [] }] }];
+      const unsigned = formatForSigning(raw);
+      signedEl.textContent = JSON.stringify(unsigned, null, 2);
+    } catch (e: any) {
+      alert(`Erro ao gerar preview: ${e.message}`);
+    }
+  }
   submit.addEventListener('click', async () => {
     const text = editor.getValue().trim();
     let cmd: any;
@@ -242,24 +255,17 @@ function buildBalanceCommand(account: string, chainId: string) {
   });
 
   sign.addEventListener('click', async () => {
-    const text = editor.getValue().trim();
-    let cmd: any;
     try {
-      cmd = JSON.parse(text);
-    } catch (err) {
-      signedOut.textContent = `Invalid JSON: ${err}`;
-      return;
-    }
-    if (!cmd.networkId || !/^testnet/i.test(cmd.networkId)) {
-      signedOut.textContent = 'Error: commands are allowed only on the testnet';
-      return;
-    }
-    try {
-      const unsigned = formatForSigning(cmd);
+      const raw = JSON.parse(editor.getValue());
+      const pubKey = await walletService.getPublicKey();
+      raw.signers = [{ pubKey, clist: [{ name: 'coin.GAS', args: [] }] }];
+      const unsigned = formatForSigning(raw);
       const signed = await walletService.signTransaction(unsigned);
-      signedOut.textContent = JSON.stringify(signed, null, 2);
-    } catch (err) {
-      signedOut.textContent = `Error signing: ${err}`;
+      signedEl.textContent = JSON.stringify(signed, null, 2);
+    } catch (e: any) {
+      alert(`Erro de assinatura: ${e.message}`);
     }
   });
+
+  updateUnsigned();
 })();
