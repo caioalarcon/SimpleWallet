@@ -1,5 +1,5 @@
 import { IWalletAdapter } from './IWalletAdapter';
-import { connect as spireConnect } from '@kadena/spirekey-sdk';
+import { connect as spireConnect, sign as spireSign } from '@kadena/spirekey-sdk';
 
 export class SpireKeyAdapter implements IWalletAdapter {
   name = 'SpireKey';
@@ -37,7 +37,17 @@ export class SpireKeyAdapter implements IWalletAdapter {
   }
 
   async signTransaction(cmd: any) {
-    return await this.acct.sign(cmd);
+    const { transactions } = await spireSign(
+      [cmd],
+      [
+        {
+          accountName: this.acct.accountName,
+          networkId: this.acct.networkId,
+          chainIds: this.acct.chainIds
+        }
+      ]
+    );
+    return transactions[0];
   }
 
   async sendTransaction(signed: any) {
