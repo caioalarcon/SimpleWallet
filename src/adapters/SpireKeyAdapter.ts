@@ -39,13 +39,11 @@ export class SpireKeyAdapter implements IWalletAdapter {
   async signTransaction(cmd: any) {
     const { transactions } = await spireSign(
       [cmd],
-      [
-        {
-          accountName: this.acct.accountName,
-          networkId: this.acct.networkId,
-          chainIds: this.acct.chainIds
-        }
-      ]
+      {
+        accountName: this.acct.accountName,
+        networkId: this.acct.networkId,
+        chainIds: this.acct.chainIds
+      }
     );
     return transactions[0];
   }
