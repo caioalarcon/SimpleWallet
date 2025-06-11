@@ -38,6 +38,21 @@ export class SpireKeyAdapter implements IWalletAdapter {
 
   async signTransaction(cmd: any) {
     const networkId = cmd.networkId || 'testnet04';
+
+    const keys = this.acct.accountKeys || this.acct.keys || this.acct.guard?.keys || this.acct.keyset?.keys;
+    let pubKey = '';
+    if (Array.isArray(keys) && keys.length > 0) {
+      const k: any = keys.find((key: any) => {
+        const pk = typeof key === 'string' ? key : key.publicKey;
+        return pk && !pk.startsWith('WEBAUTHN');
+      }) || keys[0];
+      const pk = typeof k === 'string' ? k : k.publicKey;
+      if (pk) pubKey = pk.replace(/^[kr]:/, '');
+    }
+    if (!pubKey) throw new Error('SpireKeyAdapter: publicKey não encontrada');
+
+    cmd.signers = [{ pubKey, clist: [{ name: 'coin.GAS', args: [] }] }];
+
     const context = [
       {
         accountName: this.acct.accountName,
