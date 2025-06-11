@@ -257,6 +257,8 @@ function buildBalanceCommand(account: string, chainId: string) {
   sign.addEventListener('click', async () => {
     try {
       const raw = JSON.parse(editor.getValue());
+      const pubKey = await walletService.getPublicKey();
+      raw.signers = [{ pubKey, clist: [{ name: 'coin.GAS', args: [] }] }];
       const unsigned = formatForSigning(raw);
       const signed = await walletService.signTransaction(unsigned);
       signedEl.textContent = JSON.stringify(signed, null, 2);

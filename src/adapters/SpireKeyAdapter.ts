@@ -25,7 +25,8 @@ export class SpireKeyAdapter implements IWalletAdapter {
   }
 
   async getPublicKey(): Promise<string> {
-    return this.acct.publicKey || this.acct.accountName.replace(/^k:/, '');
+    const pk = this.acct.publicKey || this.acct.accountName;
+    return pk.replace(/^[kr]:/, '');
   }
 
   async signTransaction(cmd: any) {

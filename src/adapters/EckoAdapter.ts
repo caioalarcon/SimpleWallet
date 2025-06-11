@@ -40,7 +40,8 @@ export class EckoAdapter implements IWalletAdapter {
       console.log('🔵 RPC Account Info:', info);
       if (info?.status === 'success' && info.wallet?.account) {
         this.accountName = info.wallet.account;
-        this.publicKey = info.wallet.publicKey || this.accountName.replace(/^k:/, '');
+        // remove prefix "k:" or "r:" to keep raw hex
+        this.publicKey = info.wallet.publicKey.replace(/^[kr]:/, '');
         console.log('🔵 Account & pubKey set from RPC:', this.accountName, this.publicKey);
         return;
       }
@@ -53,10 +54,11 @@ export class EckoAdapter implements IWalletAdapter {
     console.log('🔵 Fallback Account Info:', acc);
     if (typeof acc === 'string') {
       this.accountName = acc;
-      this.publicKey = acc.replace(/^k:/, '');
+      throw new Error('EckoAdapter: publicKey não disponível em getActiveAccount');
     } else {
       this.accountName = acc.accountName;
-      this.publicKey = acc.publicKey || acc.accountName.replace(/^k:/, '');
+      // always use the returned publicKey and strip prefix
+      this.publicKey = acc.publicKey.replace(/^[kr]:/, '');
     }
     console.log('🔵 Account & pubKey set from fallback:', this.accountName, this.publicKey);
   }
@@ -74,7 +76,7 @@ export class EckoAdapter implements IWalletAdapter {
     console.log('🔵 PublicKey ao assinar:', this.publicKey);
     console.log('🔵 Comando original:', cmd);
 
-    const signerKey = this.publicKey.replace(/^k:/, '');
+    const signerKey = this.publicKey.replace(/^[kr]:/, '');
     let signingCmd;
 
     if (cmd.cmd) {
