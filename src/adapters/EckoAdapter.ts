@@ -61,6 +61,10 @@ export class EckoAdapter implements IWalletAdapter {
     console.log('🔵 Account & pubKey set from fallback:', this.accountName, this.publicKey);
   }
 
+  async getPublicKey(): Promise<string> {
+    return this.publicKey;
+  }
+
   async getAccounts() {
     return [{ account: this.accountName, chainIds: Array.from({ length: 20 }, (_, i) => i.toString()) }];
   }

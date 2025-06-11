@@ -52,4 +52,10 @@ export class WalletService {
     console.log('🔵 Signing transaction only');
     return await this.active.signTransaction(cmd);
   }
+
+  /** delega getPublicKey ao adapter ativo */
+  async getPublicKey(): Promise<string> {
+    if (!this.active) throw new Error('No active wallet');
+    return await this.active.getPublicKey();
+  }
 }

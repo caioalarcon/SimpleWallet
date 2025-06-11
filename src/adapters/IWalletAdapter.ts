@@ -5,4 +5,6 @@ export interface IWalletAdapter {
   getAccounts(): Promise<{ account: string; chainIds: string[] }[]>;
   signTransaction(cmd: any): Promise<any>;
   sendTransaction(signed: any): Promise<any>;
+  /** retorna a chave pública (sem "k:") */
+  getPublicKey(): Promise<string>;
 }
